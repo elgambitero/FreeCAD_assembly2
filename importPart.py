@@ -26,7 +26,7 @@ def importPart( filename, partName=None, doc_assembly=None ):
         FreeCAD.Console.PrintMessage("updating part %s from %s\n" % (partName,filename))
     else:
         FreeCAD.Console.PrintMessage("importing part from %s\n" % filename)
-    doc_already_open = filename in [ d.FileName for d in FreeCAD.listDocuments().values() ] 
+    doc_already_open = filename in [ d.FileName for d in FreeCAD.listDocuments().values() ]
     debugPrint(4, "%s open already %s" % (filename, doc_already_open))
     if doc_already_open:
         doc = [ d for d in FreeCAD.listDocuments().values() if d.FileName == filename][0]
@@ -41,13 +41,13 @@ def importPart( filename, partName=None, doc_assembly=None ):
             myShape=Part.Shape()
             myShape.read(filename)
             shapeobj.Shape = myShape
-        
+
     visibleObjects = [ obj for obj in doc.Objects
                        if hasattr(obj,'ViewObject') and obj.ViewObject.isVisible()
                        and hasattr(obj,'Shape') and len(obj.Shape.Faces) > 0] # len(obj.Shape.Faces) > 0 to avoid sketches
 
     debugPrint(3, '%s objects %s' % (doc.Name, doc.Objects))
-    if any([ 'importPart' in obj.Content for obj in doc.Objects]) and not len(visibleObjects) == 1: 
+    if any([ 'importPart' in obj.Content for obj in doc.Objects]) and not len(visibleObjects) == 1:
         subAssemblyImport = True
         debugPrint(2, 'Importing subassembly from %s' % filename)
         tempPartName = 'import_temporary_part'
@@ -58,7 +58,7 @@ def importPart( filename, partName=None, doc_assembly=None ):
         if (not updateExistingPart) or \
                 (updateExistingPart and getattr( doc_assembly.getObject(partName),'updateColors',True)):
             muxMapColors(doc, obj_to_copy)
-    else: 
+    else:
         subAssemblyImport = False
         if len(visibleObjects) <> 1:
             if not updateExistingPart:
@@ -77,7 +77,7 @@ def importPart( filename, partName=None, doc_assembly=None ):
         if not hasattr(obj, 'updateColors'):
             obj.addProperty("App::PropertyBool","updateColors","importPart").updateColors = True
         importUpdateConstraintSubobjects( doc_assembly, obj, obj_to_copy )
-    else:        
+    else:
         partName = findUnusedObjectName( doc.Label + '_', document=doc_assembly )
         try:
             obj = doc_assembly.addObject("Part::FeaturePython",partName)
@@ -87,11 +87,11 @@ def importPart( filename, partName=None, doc_assembly=None ):
             obj.Label = findUnusedLabel( doc.Label + '_', document=doc_assembly )
         obj.addProperty("App::PropertyFile",    "sourceFile",    "importPart").sourceFile = filename
         obj.addProperty("App::PropertyFloat", "timeLastImport","importPart")
-        obj.setEditorMode("timeLastImport",1)  
+        obj.setEditorMode("timeLastImport",1)
         obj.addProperty("App::PropertyBool","fixedPosition","importPart")
         obj.fixedPosition = not any([i.fixedPosition for i in doc_assembly.Objects if hasattr(i, 'fixedPosition') ])
         obj.addProperty("App::PropertyBool","updateColors","importPart").updateColors = True
-    obj.Shape = obj_to_copy.Shape.copy() 
+    obj.Shape = obj_to_copy.Shape.copy()
     if updateExistingPart:
         obj.Placement = prevPlacement
     else:
@@ -100,9 +100,9 @@ def importPart( filename, partName=None, doc_assembly=None ):
                 setattr(obj.ViewObject, p, getattr(obj_to_copy.ViewObject, p))
         obj.ViewObject.Proxy = ImportedPartViewProviderProxy()
     if getattr(obj,'updateColors',True):
-        obj.ViewObject.DiffuseColor = copy.copy( obj_to_copy.ViewObject.DiffuseColor )        
+        obj.ViewObject.DiffuseColor = copy.copy( obj_to_copy.ViewObject.DiffuseColor )
     obj.Proxy = Proxy_importPart()
-    obj.timeLastImport = os.path.getmtime( obj.sourceFile )
+    obj.timeLastImport = os.path.getmtime( filename )
     #clean up
     if subAssemblyImport:
         doc_assembly.removeObject(tempPartName)
@@ -119,7 +119,7 @@ class Proxy_importPart:
 class ImportPartCommand:
     def Activated(self):
         view = FreeCADGui.activeDocument().activeView()
-        #filename, filetype = QtGui.QFileDialog.getOpenFileName( 
+        #filename, filetype = QtGui.QFileDialog.getOpenFileName(
         #    QtGui.qApp.activeWindow(),
         #    "Select FreeCAD document to import part from",
         #    "",# "" is the default, os.path.dirname(FreeCAD.ActiveDocument.FileName),
@@ -136,7 +136,7 @@ class ImportPartCommand:
             return
         importedObject = importPart( filename )
         FreeCAD.ActiveDocument.recompute()
-        if not importedObject.fixedPosition: #will be true for the first imported part 
+        if not importedObject.fixedPosition: #will be true for the first imported part
             PartMover( view, importedObject )
         else:
             from PySide import QtCore
@@ -147,13 +147,13 @@ class ImportPartCommand:
     def GuiViewFit(self):
         FreeCADGui.SendMsgToActiveView("ViewFit")
         self.timer.stop()
-       
-    def GetResources(self): 
+
+    def GetResources(self):
         return {
-            'Pixmap' : ':/assembly2/icons/importPart.svg', 
-            'MenuText': 'Import a part from another FreeCAD document', 
+            'Pixmap' : ':/assembly2/icons/importPart.svg',
+            'MenuText': 'Import a part from another FreeCAD document',
             'ToolTip': 'Import a part from another FreeCAD document'
-            } 
+            }
 FreeCADGui.addCommand('importPart', ImportPartCommand())
 
 
@@ -182,6 +182,20 @@ def path_convert( path, pathLibFrom, pathLibTo):
     parts =  path_split( pathLibFrom, path)
     return path_join(pathLibTo, parts )
 
+def path_rel_to_abs(path):
+    j = FreeCAD.ActiveDocument.FileName.rfind('/')
+    k = path.find('/')
+    absPath = FreeCAD.ActiveDocument.FileName[:j] + path[k:]
+    FreeCAD.Console.PrintMessage("First %s\n" % FreeCAD.ActiveDocument.FileName[:j])
+    FreeCAD.Console.PrintMessage("Next %s\n" % path[k:])
+    FreeCAD.Console.PrintMessage("absolutePath is %s\n" % absPath)
+    if path.startswith('.') and os.path.exists( absPath ):
+        return absPath
+    else:
+        return None
+
+
+
 class UpdateImportedPartsCommand:
     def Activated(self):
         #disable proxies solving the system as their objects are updated
@@ -193,7 +207,7 @@ class UpdateImportedPartsCommand:
                 if not hasattr( obj, 'timeLastImport'):
                     obj.addProperty("App::PropertyFloat", "timeLastImport","importPart") #should default to zero which will force update.
                     obj.setEditorMode("timeLastImport",1)
-                if not os.path.exists( obj.sourceFile ):
+                if not os.path.exists( obj.sourceFile ) and  path_rel_to_abs( obj.sourceFile ) is None:
                     debugPrint( 3, '%s.sourceFile %s is missing, attempting to repair it' % (obj.Name,  obj.sourceFile) )
                     replacement = None
                     aFolder, aFilename = posixpath.split( doc_assembly.FileName )
@@ -213,7 +227,7 @@ class UpdateImportedPartsCommand:
                                     break
                                 reply = QtGui.QMessageBox.question(
                                     QtGui.qApp.activeWindow(), "%s source file not found" % obj.Name,
-                                    "Unable to find\n  %s \nUse \n  %s\n instead?" % (obj.sourceFile, newFn) , 
+                                    "Unable to find\n  %s \nUse \n  %s\n instead?" % (obj.sourceFile, newFn) ,
                                     QtGui.QMessageBox.Yes | QtGui.QMessageBox.YesToAll | QtGui.QMessageBox.No, QtGui.QMessageBox.Yes)
                                 if reply == QtGui.QMessageBox.Yes:
                                     replacement = newFn
@@ -230,16 +244,22 @@ class UpdateImportedPartsCommand:
                     else:
                         QtGui.QMessageBox.critical(  QtGui.qApp.activeWindow(), "Source file not found", "update of %s aborted!\nUnable to find %s" % (obj.Name, obj.sourceFile) )
                         obj.timeLastImport = 0 #force update if users repairs link
+                if path_rel_to_abs( obj.sourceFile ) is not None:
+                    absolutePath = path_rel_to_abs( obj.sourceFile )
+                    if os.path.getmtime( absolutePath ) > obj.timeLastImport:
+                        importPart( absolutePath, obj.Name,  doc_assembly )
+                        solve_assembly_constraints = True
                 if os.path.exists( obj.sourceFile ):
                     if os.path.getmtime( obj.sourceFile ) > obj.timeLastImport:
                         importPart( obj.sourceFile, obj.Name,  doc_assembly )
                         solve_assembly_constraints = True
+
         if solve_assembly_constraints:
             solveConstraints( doc_assembly )
         # constraint mirror house keeping
         for obj in doc_assembly.Objects: #for adding creating mirrored constraints in old files
             if 'ConstraintInfo' in obj.Content:
-                if doc_assembly.getObject( obj.Object1 ) == None or doc_assembly.getObject( obj.Object2 ) == None: 
+                if doc_assembly.getObject( obj.Object1 ) == None or doc_assembly.getObject( obj.Object2 ) == None:
                     debugPrint(2, 'removing %s which refers to non-existent objects' % obj.Name)
                     doc_assembly.removeObject( obj.Name ) #required for FreeCAD 0.15 which does not support the on-delete method
                 elif not hasattr( obj.ViewObject.Proxy, 'mirror_name'):
@@ -257,13 +277,15 @@ class UpdateImportedPartsCommand:
                 debugPrint(2, '%s.ViewObject.Proxy = ImportedPartViewProviderProxy()'%obj.Name)
         doc_assembly.recompute()
 
-        
-    def GetResources(self): 
+
+    def GetResources(self):
         return {
-            'Pixmap' : ':/assembly2/icons/importPart_update.svg', 
-            'MenuText': 'Update parts imported into the assembly', 
+            'Pixmap' : ':/assembly2/icons/importPart_update.svg',
+            'MenuText': 'Update parts imported into the assembly',
             'ToolTip': 'Update parts imported into the assembly'
-            } 
+            }
+
+
 FreeCADGui.addCommand('updateImportedPartsCommand', UpdateImportedPartsCommand())
 
 def duplicateImportedPart( part ):
@@ -278,14 +300,14 @@ def duplicateImportedPart( part ):
         newObj.Label = findUnusedLabel( nameBase )
     newObj.addProperty("App::PropertyFile",    "sourceFile",    "importPart").sourceFile = part.sourceFile
     newObj.addProperty("App::PropertyFloat", "timeLastImport","importPart").timeLastImport =  part.timeLastImport
-    newObj.setEditorMode("timeLastImport",1)  
+    newObj.setEditorMode("timeLastImport",1)
     newObj.addProperty("App::PropertyBool","fixedPosition","importPart").fixedPosition = False# part.fixedPosition
     newObj.addProperty("App::PropertyBool","updateColors","importPart").updateColors = getattr(part,'updateColors',True)
     newObj.Shape = part.Shape.copy()
     for p in part.ViewObject.PropertiesList: #assuming that the user may change the appearance of parts differently depending on their role in the assembly.
         if hasattr(newObj.ViewObject, p) and p not in ['DiffuseColor','Proxy']:
             setattr(newObj.ViewObject, p, getattr( part.ViewObject, p))
-    newObj.ViewObject.DiffuseColor = copy.copy( part.ViewObject.DiffuseColor )        
+    newObj.ViewObject.DiffuseColor = copy.copy( part.ViewObject.DiffuseColor )
     newObj.Proxy = Proxy_importPart()
     newObj.ViewObject.Proxy = ImportedPartViewProviderProxy()
     newObj.Placement.Base = part.Placement.Base
@@ -296,7 +318,7 @@ def duplicateImportedPart( part ):
 class PartMover:
     def __init__(self, view, obj):
         self.obj = obj
-        self.initialPostion = self.obj.Placement.Base 
+        self.initialPostion = self.obj.Placement.Base
         self.copiedObject = False
         self.view = view
         self.callbackMove = self.view.addEventCallback("SoLocation2Event",self.moveMouse)
@@ -316,7 +338,7 @@ class PartMover:
             if not info['ShiftDown'] and not info['CtrlDown']:
                 self.removeCallbacks()
             elif info['ShiftDown']: #copy object
-                self.obj = duplicateImportedPart( self.obj ) 
+                self.obj = duplicateImportedPart( self.obj )
                 self.copiedObject = True
             elif info['CtrlDown']:
                 azi   =  ( numpy.random.rand() - 0.5 )*numpy.pi*2
@@ -324,7 +346,7 @@ class PartMover:
                 theta =  ( numpy.random.rand() - 0.5 )*numpy.pi
                 axis = azimuth_and_elevation_angles_to_axis( azi, ela )
                 self.obj.Placement.Rotation.Q = quaternion( theta, *axis )
-            
+
     def KeyboardEvent(self, info):
         debugPrint(4, 'KeyboardEvent info %s' % str(info))
         if info['State'] == 'UP' and info['Key'] == 'ESCAPE':
@@ -334,15 +356,15 @@ class PartMover:
                 FreeCAD.ActiveDocument.removeObject(self.obj.Name)
             self.removeCallbacks()
 
-    
+
 
 class PartMoverSelectionObserver:
      def __init__(self):
-         FreeCADGui.Selection.addObserver(self)  
+         FreeCADGui.Selection.addObserver(self)
          FreeCADGui.Selection.removeSelectionGate()
      def addSelection( self, docName, objName, sub, pnt ):
          debugPrint(4,'addSelection: docName,objName,sub = %s,%s,%s' % (docName, objName, sub))
-         FreeCADGui.Selection.removeObserver(self) 
+         FreeCADGui.Selection.removeObserver(self)
          obj = FreeCAD.ActiveDocument.getObject(objName)
          view = FreeCADGui.activeDocument().activeView()
          PartMover( view, obj )
@@ -355,13 +377,13 @@ class MovePartCommand:
             PartMover(  FreeCADGui.activeDocument().activeView(), selection[0].Object )
         else:
             PartMoverSelectionObserver()
-       
-    def GetResources(self): 
+
+    def GetResources(self):
         return {
-            'Pixmap' : ':/assembly2/icons/Draft_Move.svg', 
-            'MenuText': 'move', 
+            'Pixmap' : ':/assembly2/icons/Draft_Move.svg',
+            'MenuText': 'move',
             'ToolTip': 'move part  ( shift+click to copy )'
-            } 
+            }
 
 FreeCADGui.addCommand('assembly2_movePart', MovePartCommand())
 
@@ -371,14 +393,14 @@ class DuplicatePartCommand:
         if len(selection) == 1:
             PartMover(  FreeCADGui.activeDocument().activeView(), duplicateImportedPart( selection[0].Object ) )
 
-    def GetResources(self): 
+    def GetResources(self):
         return {
-            'MenuText': 'duplicate', 
+            'MenuText': 'duplicate',
             'ToolTip': 'duplicate part (hold shift for multiple)'
-            } 
+            }
 
 FreeCADGui.addCommand('assembly2_duplicatePart', DuplicatePartCommand())
-    
+
 #copy object
 
 
@@ -397,17 +419,17 @@ class EditPartCommand:
             FreeCAD.setActiveDocument( name )
             FreeCAD.ActiveDocument=FreeCAD.getDocument( name )
             FreeCADGui.ActiveDocument=FreeCADGui.getDocument( name )
-    def GetResources(self): 
-        return { 
-            'MenuText': 'edit', 
-            } 
+    def GetResources(self):
+        return {
+            'MenuText': 'edit',
+            }
 FreeCADGui.addCommand('assembly2_editImportedPart', EditPartCommand())
 
 class ForkPartCommand:
     def Activated(self):
         selection = [s for s in FreeCADGui.Selection.getSelection() if s.Document == FreeCAD.ActiveDocument ]
         obj = selection[0]
-        filename, filetype = QtGui.QFileDialog.getSaveFileName( 
+        filename, filetype = QtGui.QFileDialog.getSaveFileName(
             QtGui.qApp.activeWindow(),
             "Specify the filename for the fork of '%s'" % obj.Label[:obj.Label.find('_import')],
             os.path.dirname(FreeCAD.ActiveDocument.FileName),
@@ -423,10 +445,10 @@ class ForkPartCommand:
         else:
             QtGui.QMessageBox.critical(  QtGui.qApp.activeWindow(), "Bad filename", "Specify a new filename!")
 
-    def GetResources(self): 
-        return { 
-            'MenuText': 'fork', 
-            } 
+    def GetResources(self):
+        return {
+            'MenuText': 'fork',
+            }
 FreeCADGui.addCommand('assembly2_forkImportedPart', ForkPartCommand())
 
 
@@ -449,10 +471,10 @@ class DeletePartsConstraints:
             if response == QtGui.QMessageBox.Yes:
                 for c in deleteList:
                     removeConstraint(c)
-    def GetResources(self): 
-        return { 
-            'MenuText': 'delete constraints', 
-            } 
+    def GetResources(self):
+        return {
+            'MenuText': 'delete constraints',
+            }
 FreeCADGui.addCommand('assembly2_deletePartsConstraints', DeletePartsConstraints())
 
 
@@ -466,7 +488,7 @@ class _SelectionWrapper:
     def __init__(self, obj, subElementName):
         self.Object = obj
         self.SubElementNames = [subElementName]
-        
+
 
 def classifySubElement( obj, subElementName ):
     selection = _SelectionWrapper( obj, subElementName )
@@ -486,14 +508,14 @@ def classifySubElement( obj, subElementName ):
         return 'other'
 
 def classifySubElements( obj ):
-    C = { 
+    C = {
         'plane': [],
         'cylindricalSurface': [],
         'circularEdge':[],
-        'linearEdge':[], 
-        'vertex':[], 
+        'linearEdge':[],
+        'vertex':[],
         'sphericalSurface':[],
-        'other':[] 
+        'other':[]
         }
     prefixDict = {'Vertexes':'Vertex','Edges':'Edge','Faces':'Face'}
     for listName in ['Vertexes','Edges','Faces']:
@@ -502,7 +524,7 @@ def classifySubElements( obj ):
             catergory = classifySubElement( obj, subElementName )
             C[catergory].append(subElementName)
     return C
-    
+
 class SubElementDifference:
     def __init__(self, obj1, SE1, T1, obj2, SE2, T2):
         self.obj1 = obj1
@@ -523,7 +545,7 @@ class SubElementDifference:
             p2 = getSubElementPos( obj2, SE2 )
             self.error2 = norm( T1(p1) - T2(p2) )
         else:
-            self.error2 = 1 - (SE1 == SE2) #subelements have the same name        
+            self.error2 = 1 - (SE1 == SE2) #subelements have the same name
     def __lt__(self, b):
         if self.error1 <> b.error1:
             return self.error1 < b.error1
@@ -579,13 +601,13 @@ def importUpdateConstraintSubobjects( doc, oldObject, newObject ):
                     debugPrint(3,'    closest match %s' % d_min)
                     newSE =  d_min.SE2
                     debugPrint(2,'  updating %s.%s   %s->%s' % (c.Name, SubElement, subElementName, newSE))
-                    setattr(c, SubElement, newSE) 
+                    setattr(c, SubElement, newSE)
                     c.purgeTouched() #prevent constraint Proxy.execute being called when document recomputed.
                 else:
                     debugPrint(3,'  leaving %s.%s as is, since subElement in old and new shape are equal' % (c.Name, SubElement))
 
 
-                    
+
 if __name__ == '__main__':
     print('\nTesting importPart.py')
     def test_split_and_join( pathLib, path):
@@ -605,5 +627,5 @@ if __name__ == '__main__':
         converted = path_convert( path, pathLibFrom, pathLibTo)
         print('  converted   %s'  %  converted )
         print('  reversed    %s'  % path_convert( path, pathLibTo, pathLibFrom) )
-                
+
     test_path_convert( r'C:\Users\gyb\Desktop\Circular Saw Jig\Side support V1.00.FCStd', ntpath, os.path )
